@@ -1,15 +1,28 @@
-# tributepay
+# TributePay
 
-To install dependencies:
+## Setup
 
 ```bash
 bun install
 ```
 
-To run:
+## Configuration
 
-```bash
-bun run index.ts
-```
+- `TRIBUTE_API_KEY` — Tribute webhook secret used to validate incoming requests.
+- `PORT` (optional) — port for the Bun server, defaults to `3041`.
 
-This project was created using `bun init` in bun v1.2.22. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+## Development
+
+- Start the webhook listener:
+
+  ```bash
+  bun run index.ts
+  ```
+
+- Run the automated test suite:
+
+  ```bash
+  bun test
+  ```
+
+The server exposes the Tribute webhook at `/wh` and logs the payment identifier whenever a payment completion event is received.
