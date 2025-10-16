@@ -11,12 +11,16 @@ export function startServer() {
     port: PORT,
     fetch: async (req) => {
       const url = new URL(req.url);
+      const pathname = (() => {
+        const trimmed = url.pathname.replace(/\/+$/, "");
+        return trimmed === "" ? "/" : trimmed;
+      })();
 
-      if (url.pathname === "/wh") {
+      if (pathname === "/" || pathname === "/wh") {
         return webhookHandler(req);
       }
 
-      if (url.pathname === "/health") {
+      if (pathname === "/health") {
         return json({ ok: true });
       }
 
