@@ -1,5 +1,5 @@
 const DEFAULT_PORT = 3041;
-const DEFAULT_WEBHOOK_PATHS = new Set(["/", "/wh"]);
+const DEFAULT_WEBHOOK_PATHS = new Set(["/", "/naso"]);
 const SECRET_PREFIX = "TRIBUTE_API_KEY__";
 
 type SecretMap = Map<string, string>;
