@@ -8,7 +8,7 @@ const noop: (...args: unknown[]) => void = () => {};
 describe("createWebhookHandler", () => {
   test("returns 200 for valid signature", async () => {
     const secret = "sign-secret";
-    const handler = createWebhookHandler({ secret });
+    const handler = createWebhookHandler({ secret, endpoint: "/wh" });
 
     const payload = { name: "payment_completed", payload: { payment_id: "pay_007" } };
     const body = JSON.stringify(payload);
@@ -44,7 +44,7 @@ describe("createWebhookHandler", () => {
   });
 
   test("rejects invalid signature", async () => {
-    const handler = createWebhookHandler({ secret: "pair" });
+    const handler = createWebhookHandler({ secret: "pair", endpoint: "/wh" });
     const payload = { name: "payment_completed", payload: { payment_id: "bad" } };
     const body = JSON.stringify(payload);
 
@@ -76,7 +76,7 @@ describe("createWebhookHandler", () => {
   });
 
   test("rejects missing signature header", async () => {
-    const handler = createWebhookHandler({ secret: "pair" });
+    const handler = createWebhookHandler({ secret: "pair", endpoint: "/wh" });
     const payload = { name: "payment_completed", payload: { payment_id: "missing" } };
     const body = JSON.stringify(payload);
 
@@ -105,7 +105,7 @@ describe("createWebhookHandler", () => {
   });
 
   test("rejects empty body", async () => {
-    const handler = createWebhookHandler({ secret: "pair" });
+    const handler = createWebhookHandler({ secret: "pair", endpoint: "/wh" });
     const request = new Request("http://localhost/wh", {
       method: "POST",
       body: "",
@@ -132,7 +132,7 @@ describe("createWebhookHandler", () => {
   });
 
   test("rejects non-POST methods", async () => {
-    const handler = createWebhookHandler({ secret: "pair" });
+    const handler = createWebhookHandler({ secret: "pair", endpoint: "/wh" });
     const request = new Request("http://localhost/wh", {
       method: "GET",
     });

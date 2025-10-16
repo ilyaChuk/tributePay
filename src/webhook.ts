@@ -5,27 +5,33 @@ import type { TributeEvent } from "./types";
 
 export type WebhookConfig = {
   secret: string;
+  endpoint?: string;
 };
 
 const decoder = new TextDecoder();
-const LOG_PREFIX = "[TributeWebhook]";
 
 export function createWebhookHandler(config: WebhookConfig) {
-  const { secret } = config;
+  const { secret, endpoint } = config;
+  const logPrefix = (() => {
+    if (!endpoint) return "[TributeWebhook]";
+    return `[TributeWebhook:${endpoint}]`;
+  })();
 
   return async function handleWebhook(req: Request): Promise<Response> {
     try {
       const method = req.method ?? "GET";
       const url = new URL(req.url);
-      console.info(`${LOG_PREFIX} received ${method} ${url.pathname}`);
+      console.info(`${logPrefix} received ${method} ${url.pathname}`);
 
       if (method !== "POST") {
-        console.warn(`${LOG_PREFIX} rejecting unsupported method ${method} ${url.pathname}`);
+        console.warn(`${logPrefix} rejecting unsupported method ${method} ${url.pathname}`);
         return json({ error: "method not allowed", method }, { status: 405 });
       }
 
       if (!secret) {
-        console.error(`${LOG_PREFIX} TRIBUTE_API_KEY not configured; signature verification disabled`);
+        console.error(
+          `${logPrefix} webhook secret not configured; signature verification disabled`,
+        );
         return json({ error: "server misconfigured" }, 500);
       }
 
@@ -33,7 +39,7 @@ export function createWebhookHandler(config: WebhookConfig) {
       const raw = new Uint8Array(arrayBuffer);
 
       if (raw.byteLength === 0) {
-        console.warn(`${LOG_PREFIX} empty request body`);
+        console.warn(`${logPrefix} empty request body`);
         return json({ error: "empty body" }, 400);
       }
 
@@ -43,13 +49,13 @@ export function createWebhookHandler(config: WebhookConfig) {
         req.headers.get("X-Trbt-Signature");
 
       if (!signature) {
-        console.warn(`${LOG_PREFIX} missing signature header`);
+        console.warn(`${logPrefix} missing signature header`);
         return json({ error: "missing signature" }, 401);
       }
 
       const isValid = await verifyTributeSignature(signature, secret, raw);
       if (!isValid) {
-        console.warn(`${LOG_PREFIX} invalid signature`, signature);
+        console.warn(`${logPrefix} invalid signature`, signature);
         return json({ error: "invalid signature" }, 401);
       }
 
@@ -63,15 +69,15 @@ export function createWebhookHandler(config: WebhookConfig) {
       }
 
       if (!event || typeof event.name !== "string") {
-        console.warn(`${LOG_PREFIX} invalid event`, event);
+        console.warn(`${logPrefix} invalid event`, event);
         return json({ error: "invalid event" }, 400);
       }
 
       const result = handleTributeEvent(event);
-      console.info(`${LOG_PREFIX} processed ${event.name} -> ${result.status}`);
+      console.info(`${logPrefix} processed ${event.name} -> ${result.status}`);
       return json(result.body, { status: result.status });
     } catch (error) {
-      console.error(`${LOG_PREFIX} unhandled error`, error);
+      console.error(`${logPrefix} unhandled error`, error);
       return json({ error: "internal error" }, 500);
     }
   };
