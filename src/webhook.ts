@@ -8,18 +8,33 @@ export type WebhookConfig = {
 };
 
 const decoder = new TextDecoder();
+const LOG_PREFIX = "[TributeWebhook]";
 
 export function createWebhookHandler(config: WebhookConfig) {
   const { secret } = config;
 
   return async function handleWebhook(req: Request): Promise<Response> {
     try {
+      const method = req.method ?? "GET";
+      const url = new URL(req.url);
+      console.info(`${LOG_PREFIX} received ${method} ${url.pathname}`);
+
+      if (method !== "POST") {
+        console.warn(`${LOG_PREFIX} rejecting unsupported method ${method} ${url.pathname}`);
+        return json({ error: "method not allowed", method }, { status: 405 });
+      }
+
+      if (!secret) {
+        console.error(`${LOG_PREFIX} TRIBUTE_API_KEY not configured; signature verification disabled`);
+        return json({ error: "server misconfigured" }, 500);
+      }
+
       const arrayBuffer = await req.arrayBuffer();
       const raw = new Uint8Array(arrayBuffer);
 
-      if (!secret) {
-        console.warn("Attempted to process webhook without TRIBUTE_API_KEY");
-        return json({ error: "server not configured" }, 500);
+      if (raw.byteLength === 0) {
+        console.warn(`${LOG_PREFIX} empty request body`);
+        return json({ error: "empty body" }, 400);
       }
 
       const signature =
@@ -27,9 +42,14 @@ export function createWebhookHandler(config: WebhookConfig) {
         req.headers.get("Trbt-Signature") ??
         req.headers.get("X-Trbt-Signature");
 
+      if (!signature) {
+        console.warn(`${LOG_PREFIX} missing signature header`);
+        return json({ error: "missing signature" }, 401);
+      }
+
       const isValid = await verifyTributeSignature(signature, secret, raw);
       if (!isValid) {
-        console.warn("Invalid tribute signature", signature ?? "<missing>");
+        console.warn(`${LOG_PREFIX} invalid signature`, signature);
         return json({ error: "invalid signature" }, 401);
       }
 
@@ -43,13 +63,15 @@ export function createWebhookHandler(config: WebhookConfig) {
       }
 
       if (!event || typeof event.name !== "string") {
+        console.warn(`${LOG_PREFIX} invalid event`, event);
         return json({ error: "invalid event" }, 400);
       }
 
       const result = handleTributeEvent(event);
+      console.info(`${LOG_PREFIX} processed ${event.name} -> ${result.status}`);
       return json(result.body, { status: result.status });
     } catch (error) {
-      console.error("Unhandled tribute webhook error", error);
+      console.error(`${LOG_PREFIX} unhandled error`, error);
       return json({ error: "internal error" }, 500);
     }
   };
