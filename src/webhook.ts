@@ -1,17 +1,26 @@
 import { json } from "./http";
-import { handleTributeEvent } from "./handlers";
+import { handleTributeEvent, type HandlerResult } from "./handlers";
 import { verifyTributeSignature } from "./signature";
 import type { TributeEvent } from "./types";
 
 export type WebhookConfig = {
   secret: string;
   endpoint?: string;
+  onEvent?: (payload: ProcessedTributeEvent) => void;
 };
 
 const decoder = new TextDecoder();
 
+export type ProcessedTributeEvent = {
+  endpoint?: string;
+  event: TributeEvent;
+  result: HandlerResult;
+  receivedAt: string;
+  bodyText: string;
+};
+
 export function createWebhookHandler(config: WebhookConfig) {
-  const { secret, endpoint } = config;
+  const { secret, endpoint, onEvent } = config;
   const logPrefix = (() => {
     if (!endpoint) return "[TributeWebhook]";
     return `[TributeWebhook:${endpoint}]`;
@@ -75,6 +84,22 @@ export function createWebhookHandler(config: WebhookConfig) {
 
       const result = handleTributeEvent(event);
       console.info(`${logPrefix} processed ${event.name} -> ${result.status}`);
+      if (onEvent) {
+        const payload: ProcessedTributeEvent = {
+          endpoint,
+          event,
+          result,
+          receivedAt: new Date().toISOString(),
+          bodyText,
+        };
+        queueMicrotask(() => {
+          try {
+            onEvent(payload);
+          } catch (err) {
+            console.error(`${logPrefix} onEvent callback failed`, err);
+          }
+        });
+      }
       return json(result.body, { status: result.status });
     } catch (error) {
       console.error(`${logPrefix} unhandled error`, error);
